@@ -1,122 +1,179 @@
-## 📊 Financial Assets
+# 📊 Portfolio Optimization Using Time Series Forecasting
 
-| Asset | Description | Volatility |
-|------|------------|------------|
-| 🚗 **TSLA** | Tesla Inc. | 🔥 High |
-| 🏦 **BND** | Vanguard Total Bond Market ETF | 🟢 Low |
-| 📈 **SPY** | S&P 500 ETF | 🟡 Medium |
-
-📅 **Data Range:** 2015 – 2026 (daily adjusted close prices)
+This project implements a **data-driven portfolio optimization pipeline** using historical financial data, classical time series forecasting (ARIMA), and portfolio theory.  
+The workflow is structured into **four tasks**, progressing from data exploration to forecast-based portfolio optimization.
 
 ---
 
-## 🧠 Task 2 — Time Series Forecasting
+## 📁 Repository Structure
 
-### 🎯 Objective
-To **build, evaluate, and compare** classical and deep learning models capable of forecasting asset prices for portfolio optimization.
+```text
+portfolio-optimization/
+│
+├── data/
+│   ├── raw/                     # Original downloaded market data
+│   └── processed/               # Cleaned data, forecasts, trained models
+│       ├── prices_aligned.csv
+│       ├── tsla_arima_forecast.csv
+│       ├── bnd_arima_forecast.csv
+│       ├── spy_arima_forecast.csv
+│
+├── notebooks/
+│   ├── task1_eda.ipynb
+│   ├── task2_forecasting.ipynb
+│   └── task3_portfolio_analysis.ipynb
+│
+├── reports/
+│   └── figures/
+│       ├── tsla_forecast.png
+│       ├── bnd_forecast.png
+│       ├── spy_forecast.png
+│       └── portfolio_forecast.png
+│
+├── src/
+│   ├── __init__.py
+│   ├── forecasting.py
+│   └── portfolio_analysis.py
+│
+├── README.md
+├── requirements.txt
+└── .gitignore
 
----
+📊 Financial Assets
+Asset	Description	Volatility
+🚗 TSLA	Tesla Inc.	🔥 High
+🏦 BND	Vanguard Total Bond Market ETF	🟢 Low
+📈 SPY	S&P 500 ETF	🟡 Medium
 
-## 🔬 Methodology
+📅 Data Range: 2015 – 2026 (daily adjusted close prices)
 
-### 🔹 1. Train / Test Split
-- 🏋️ **Training:** 2015 – 2024  
-- 🧪 **Testing:** 2025 – 2026  
-- ⛔ No look-ahead bias (strict chronological split)  
-- 📉 Returns used for diagnostics; **prices forecasted**
+🧠 Task 1 — Exploratory Data Analysis (EDA)
+🎯 Objective
 
----
+Understand historical price behavior, trends, volatility, and correlations.
 
-### 🔹 2. Stationarity Testing (ADF)
-- 📊 Augmented Dickey–Fuller tests applied
-- ❌ All series non-stationary
-- ➗ Differencing required → `d = 1`
+🔍 Key Steps
 
----
+Price visualization and summary statistics
 
-### 🔹 3. ACF & PACF Diagnostics
-- 📈 Conducted on returns
-- 🧩 Guides AR (p) and MA (q) selection
-- ✅ Supports transparency and model explainability
+Daily return computation
 
----
+Volatility comparison across assets
 
-### 🔹 4. Models Implemented
+Correlation analysis
 
-#### 📘 ARIMA (Auto-Regressive Integrated Moving Average)
-- 🔍 Parameters selected via **AIC minimization**
-- ⚙ Example: **TSLA → ARIMA(3,1,2)**
-- 💡 Strong interpretability and stability
+📓 Notebook: notebooks/task1_eda.ipynb
 
-#### 🤖 LSTM (Long Short-Term Memory)
-- 🪟 Window size: **30 days**
-- 🧠 Architecture:
-  - Single LSTM layer
-  - Dense output layer
-- ⏱ Trained for **8 epochs**
-- 🎯 Captures nonlinear temporal dependencies
+🧠 Task 2 — Time Series Forecasting
+🎯 Objective
 
----
+Build and evaluate forecasting models to predict future asset prices for portfolio analysis.
 
-### 🔹 5. Evaluation Metrics
-Models were compared using:
-- 📏 **MAE** – Mean Absolute Error  
-- 📐 **RMSE** – Root Mean Squared Error  
-- 📊 **MAPE** – Mean Absolute Percentage Error  
+🔬 Methodology
+1️⃣ Train / Test Split
 
----
+🏋️ Training: 2015 – 2024
 
-## 🏆 Model Performance Summary
+🧪 Testing: 2025 – 2026
 
-| Asset | Model | MAE | RMSE | MAPE (%) | Best |
-|------|------|------|------|----------|------|
-| 🏦 BND | ARIMA | 2.79 | 3.24 | 3.83 | ✅ |
-| 🏦 BND | LSTM | 6.51 | 7.14 | 8.99 | ❌ |
-| 📈 SPY | ARIMA | 35.79 | 42.55 | 5.71 | ✅ |
-| 📈 SPY | LSTM | 179.58 | 212.15 | 27.85 | ❌ |
-| 🚗 TSLA | ARIMA | 69.30 | 83.10 | 22.48 | ✅ |
-| 🚗 TSLA | LSTM | 223.51 | 263.37 | 58.11 | ❌ |
+⛔ Strict chronological split (no look-ahead bias)
 
----
+2️⃣ Stationarity Testing
 
-## 🧾 Discussion of Model Selection
+Augmented Dickey–Fuller (ADF) tests applied
 
-### 🔍 Key Findings
-- ✅ **ARIMA consistently outperformed LSTM** across all assets
-- 📉 Strong performance on low and medium volatility assets (BND, SPY)
-- ⚠️ LSTM limited by dataset size and market noise
-- 🧠 ARIMA offers better interpretability and reliability
+All series non-stationary → differencing required (d = 1)
 
-### 🏁 Final Choice
-> **ARIMA models were selected as the final forecasting approach**  
-> for all assets moving into portfolio optimization.
+3️⃣ Model Diagnostics
 
----
+ACF and PACF used to guide AR and MA terms
 
-## 🚀 What’s Next — Task 3
+Parameter selection via AIC minimization
 
-The ARIMA forecasts will be used for:
-- 📅 Future price projection
-- ⚖️ Risk–return estimation
-- 🧮 Portfolio optimization and allocation analysis
+🤖 Models Implemented
+📘 ARIMA
 
----
+Asset-specific orders (e.g., TSLA → ARIMA(3,1,2))
 
-## ✅ Project Status
+Interpretable and stable
 
-- ✔ Task 2 completed  
-- ✔ Forecasts generated and saved  
-- ✔ Metrics exported  
-- ✔ Visualizations produced  
-- ✔ Notebook fully documented and modularized  
+Final model selected for all assets
 
----
+🤖 LSTM (Experimental)
 
-## 🛠️ Tech Stack
+Sliding window sequence modeling
 
-`Python` · `Pandas` · `NumPy` · `Statsmodels` · `pmdarima` ·  
-`TensorFlow / Keras` · `Scikit-learn` · `Matplotlib` · `Seaborn`
+Tested but underperformed ARIMA
 
----
+Not used for portfolio decisions
 
-⭐ *If you find this project useful, feel free to star the repository.*
+📊 Model Performance Summary
+Asset	Model	MAE	RMSE	MAPE (%)	Best
+🏦 BND	ARIMA	2.79	3.24	3.83	✅
+📈 SPY	ARIMA	35.79	42.55	5.71	✅
+🚗 TSLA	ARIMA	69.30	83.10	22.48	✅
+
+📓 Notebook: notebooks/task2_forecasting.ipynb
+
+📊 Task 3 — Forecast-Based Portfolio Analysis
+🎯 Objective
+
+Use ARIMA forecasts to estimate expected returns, risk, and portfolio behavior.
+
+📥 Inputs
+
+ARIMA forecast CSVs in data/processed/
+
+Historical aligned price data
+
+🧮 Methods
+
+Implemented in src/portfolio_analysis.py:
+
+Expected return estimation from forecasted prices
+
+Annualized volatility calculation
+
+Forecast-based trend analysis
+
+Combined portfolio forecast construction
+
+📈 Outputs
+
+Asset-level forecast metrics
+
+Combined portfolio forecast plot
+
+Metrics ready for optimization
+
+📓 Notebook: notebooks/task3_portfolio_analysis.ipynb
+📊 Figures saved to: reports/figures/
+
+🔮 Task 4 — Portfolio Optimization (Next)
+
+Planned next steps:
+
+Mean–variance optimization
+
+Maximum Sharpe ratio portfolio
+
+Efficient frontier visualization
+
+Comparison with equal-weight portfolio
+
+📍 Implemented in a separate task4-portfolio-optimization branch.
+
+🛠️ Tech Stack
+
+Python · Pandas · NumPy · Statsmodels · pmdarima
+Scikit-learn · Matplotlib · Seaborn · TensorFlow/Keras
+
+✅ Project Status
+
+✔ Task 1 — EDA completed
+
+✔ Task 2 — Forecasting completed
+
+✔ Task 3 — Portfolio analysis completed
+
+🔜 Task 4 — Optimization in progress
