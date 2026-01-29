@@ -1,118 +1,144 @@
-"""
-Task 3: Portfolio Analysis & Optimization
-Uses forecast outputs to compute expected returns and risk
-"""
-
-import numpy as np
-import pandas as pd
-
-
-def compute_expected_returns(forecast_df):
-    """
-    Compute expected returns from forecasted prices.
-
-    Parameters
-    ----------
-    forecast_df : pd.DataFrame
-        Columns: ['date', 'forecast']
-
-    Returns
-    -------
-    float
-        Expected return
-    """
-    prices = forecast_df["forecast"].values
-    returns = np.diff(prices) / prices[:-1]
-    return returns.mean()
-
-
-def compute_volatility(forecast_df):
-    """
-    Compute forecasted volatility.
-
-    Returns
-    -------
-    float
-    """
-    prices = forecast_df["forecast"].values
-    returns = np.diff(prices) / prices[:-1]
-    return returns.std()
-
-
-def sharpe_ratio(expected_return, volatility, risk_free_rate=0.0):
-    """
-    Compute Sharpe Ratio.
-    """
-    if volatility == 0:
-        return np.nan
-    return (expected_return - risk_free_rate) / volatility
+# portfolio_analysis.py — Full Pipeline (Task 1 → Task 4)
 
 """
-Task 3 & Task 4: Portfolio Analysis and Optimization
+This script consolidates preprocessing, EDA, forecasting, and portfolio optimization
+for the Week 9 KAIM challenge (GMF Investments).
+Generates all figures and outputs to reports/figures/task*_ directories.
 """
 
+# ==============================================================
+# 0. Imports & Setup
+# ==============================================================
+import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from pypfopt import expected_returns, risk_models, EfficientFrontier
+from pmdarima import auto_arima
+from sklearn.preprocessing import MinMaxScaler
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import LSTM, Dense
 
+# Project directories
+PROJECT_ROOT = r"C:\Users\JERUSALEM\Desktop\portfolio-optimization"
+PROCESSED_DIR = os.path.join(PROJECT_ROOT, "data", "processed")
+FIGURES_DIR = os.path.join(PROJECT_ROOT, "reports", "figures")
+os.makedirs(FIGURES_DIR, exist_ok=True)
 
-# =========================
-# Task 3 — Forecast Metrics
-# =========================
+# ==============================================================
+# 1. Task 1 — Data Preprocessing & EDA
+# ==============================================================
+prices = pd.read_csv(os.path.join(PROCESSED_DIR, "prices_aligned.csv"), index_col=0, parse_dates=True)
+returns = prices.pct_change().dropna()
 
-def compute_forecast_metrics(forecast_series: pd.Series):
-    """
-    Compute expected return and annualized volatility from forecasted prices.
-    """
-    returns = forecast_series.pct_change().dropna()
-    expected_return = returns.mean() * 252
-    annual_volatility = returns.std() * np.sqrt(252)
-    return expected_return, annual_volatility
+# Example EDA: plot prices
+eda_dir = os.path.join(FIGURES_DIR, "task1_eda")
+os.makedirs(eda_dir, exist_ok=True)
+plt.figure(figsize=(10,5))
+for col in prices.columns:
+    plt.plot(prices.index, prices[col], label=col)
+plt.title("Adjusted Closing Prices (2015-2024)")
+plt.legend()
+plt.tight_layout()
+plt.savefig(os.path.join(eda_dir, "prices_over_time.png"))
+plt.close()
 
+# ==============================================================
+# 2. Task 2 — ARIMA & LSTM Forecasting (simplified)
+# ==============================================================
+# ARIMA forecast on TSLA
+tsla_train = prices['TSLA'].loc[:'2024-12-31']
+arima_model = auto_arima(tsla_train, seasonal=False, suppress_warnings=True)
+tsla_forecast_arima = arima_model.predict(n_periods=252)
 
-def build_portfolio_forecast(forecasts: dict, weights: dict):
-    """
-    Combine asset forecasts using portfolio weights.
-    """
-    portfolio = sum(
-        weights[ticker] * forecasts[ticker]
-        for ticker in weights
-    )
-    return portfolio
+# LSTM forecast prep
+scaler = MinMaxScaler()
+tsla_scaled = scaler.fit_transform(tsla_train.values.reshape(-1,1))
+X, y = [], []
+window_size = 60
+for i in range(window_size, len(tsla_scaled)):
+    X.append(tsla_scaled[i-window_size:i, 0])
+    y.append(tsla_scaled[i, 0])
+X, y = np.array(X), np.array(y)
+X = X.reshape((X.shape[0], X.shape[1], 1))
 
+lstm_model = Sequential([LSTM(50, input_shape=(X.shape[1],1)), Dense(1)])
+lstm_model.compile(optimizer='adam', loss='mse')
+lstm_model.fit(X, y, epochs=5, batch_size=32, verbose=0)
+tsla_lstm_pred_scaled = lstm_model.predict(X[-252:])
+tsla_lstm_forecast = scaler.inverse_transform(tsla_lstm_pred_scaled)
 
-def plot_portfolio_forecast(portfolio_series, save_path):
-    plt.figure(figsize=(12, 6))
-    plt.plot(portfolio_series, label="Portfolio Forecast", linewidth=2)
-    plt.title("Combined Portfolio Forecast")
-    plt.xlabel("Date")
-    plt.ylabel("Portfolio Value")
-    plt.grid(True)
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig(save_path, dpi=300)
-    plt.close()
+# Save forecast
+pd.DataFrame(tsla_lstm_forecast, index=pd.date_range('2025-01-01', periods=252, freq='B'), columns=['Forecast']).to_csv(os.path.join(PROCESSED_DIR, 'tsla_lstm_forecast.csv'))
 
+# ==============================================================
+# 3. Task 3 — Forecast Evaluation (summary)
+# ==============================================================
+# Optional: compute RMSE/MAE/MAPE if actual data available
 
-# =========================
-# Task 4 — Optimization
-# =========================
+# ==============================================================
+# 4. Task 4 — Portfolio Optimization
+# ==============================================================
+prices_hist = prices.loc['2015-01-01':'2024-12-31']
+mu_hist = expected_returns.mean_historical_return(prices_hist)
+cov_hist = risk_models.sample_cov(prices_hist)
 
-def mean_variance_optimization(expected_returns, cov_matrix, risk_free_rate=0.0):
-    """
-    Compute maximum Sharpe ratio portfolio weights.
-    """
-    inv_cov = np.linalg.inv(cov_matrix)
-    excess_returns = expected_returns - risk_free_rate
-    weights = inv_cov @ excess_returns
-    weights /= weights.sum()
-    return weights
+# Load TSLA forecast
+tsla_forecast = pd.read_csv(os.path.join(PROCESSED_DIR, 'tsla_lstm_forecast.csv'), index_col=0, parse_dates=True)
+tsla_last_price = prices_hist['TSLA'].iloc[-1]
+tsla_forecast_price = tsla_forecast.iloc[-1,0]
+forecast_days = len(tsla_forecast)
+tsla_expected_return = (tsla_forecast_price/tsla_last_price)**(252/forecast_days) - 1
 
+mu = mu_hist.copy()
+mu['TSLA'] = tsla_expected_return
 
-def portfolio_performance(weights, expected_returns, cov_matrix):
-    """
-    Compute portfolio return and volatility.
-    """
-    port_return = weights @ expected_returns
-    port_vol = np.sqrt(weights.T @ cov_matrix @ weights)
-    return port_return, port_vol
+# Maximum Sharpe Portfolio
+ef_sharpe = EfficientFrontier(mu, cov_hist)
+ef_sharpe.max_sharpe(risk_free_rate=0.0)
+weights_max_sharpe = ef_sharpe.clean_weights()
+perf_max_sharpe = ef_sharpe.portfolio_performance(risk_free_rate=0.0)
+
+# Minimum Volatility Portfolio
+ef_minvol = EfficientFrontier(mu, cov_hist)
+ef_minvol.min_volatility()
+weights_min_vol = ef_minvol.clean_weights()
+perf_min_vol = ef_minvol.portfolio_performance(risk_free_rate=0.0)
+
+# Efficient Frontier plot
+portfolio_fig_dir = os.path.join(FIGURES_DIR,'task4_portfolio')
+os.makedirs(portfolio_fig_dir, exist_ok=True)
+returns, vols = [], []
+target_returns = np.linspace(mu.min(), 0.08, 100)
+for r in target_returns:
+    ef = EfficientFrontier(mu, cov_hist)
+    try:
+        ef.efficient_return(r)
+        perf = ef.portfolio_performance()
+        returns.append(perf[0])
+        vols.append(perf[1])
+    except ValueError:
+        continue
+
+plt.figure(figsize=(10,6))
+plt.scatter(vols, returns, c=np.array(returns)/np.array(vols), cmap='viridis', alpha=0.7)
+plt.scatter(perf_max_sharpe[1], perf_max_sharpe[0], marker='*', color='red', s=200, label='Max Sharpe')
+plt.scatter(perf_min_vol[1], perf_min_vol[0], marker='*', color='blue', s=150, label='Min Volatility')
+plt.xlabel('Annualized Volatility')
+plt.ylabel('Expected Annual Return')
+plt.title('Efficient Frontier — Full Portfolio Analysis')
+plt.legend()
+plt.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.savefig(os.path.join(portfolio_fig_dir,'efficient_frontier.png'), dpi=300)
+plt.close()
+
+# Save portfolio weights
+weights_summary = pd.DataFrame({
+    'Asset': ['TSLA','BND','SPY'],
+    'Max_Sharpe': [weights_max_sharpe[a] for a in ['TSLA','BND','SPY']],
+    'Min_Vol': [weights_min_vol[a] for a in ['TSLA','BND','SPY']]
+})
+weights_summary.to_csv(os.path.join(portfolio_fig_dir,'portfolio_weights.csv'), index=False)
+
+print('✔ Full portfolio analysis complete: Task 1 → Task 4')
